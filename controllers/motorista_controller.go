@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 
@@ -147,20 +148,45 @@ func (c *MotoristaController) BuscarMotorista(ctx *fiber.Ctx) error {
 			"error": "Motorista não encontrado",
 		})
 	}
+	fotoURL := ""
+	if motorista.FotoPerfil != "" {
+		fotoURL = "/api/profile/" + motorista.ID + "/photo"
+	}
 
 	return ctx.JSON(fiber.Map{
 		"motorista": fiber.Map{
-			"id":             motorista.ID,
-			"nome":           motorista.Nome,
-			"email":          motorista.Email,
-			"telefone":       motorista.Telefone,
-			"status":         motorista.Status,
-			"modelo_veiculo": motorista.ModeloVeiculo,
-			"placa_veiculo":  motorista.PlacaVeiculo,
-			"criado_em":      motorista.CriadoEm,
-			"documentos":     motorista.Documentos,
+			"id":              motorista.ID,
+			"nome":            motorista.Nome,
+			"email":           motorista.Email,
+			"telefone":        motorista.Telefone,
+			"cpf":             motorista.CPF,
+			"cnh":             motorista.CNH,
+			"categoria_cnh":   motorista.CategoriaCNH,
+			"validade_cnh":    motorista.ValidadeCNH,
+			"status":          motorista.Status,
+			"modelo_veiculo":  motorista.ModeloVeiculo,
+			"placa_veiculo":   motorista.PlacaVeiculo,
+			"criado_em":       motorista.CriadoEm,
+			"documentos":      motorista.Documentos,
+			"foto_perfil_url": fotoURL,
 		},
 	})
+}
+
+// FotoPerfil GET /api/profile/:id/photo
+func (c *MotoristaController) FotoPerfil(ctx *fiber.Ctx) error {
+	motoristaID := ctx.Params("id")
+	motorista, err := c.motoristaService.BuscarMotorista(motoristaID)
+	if err != nil {
+		return ctx.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Motorista não encontrado"})
+	}
+	if motorista.FotoPerfil == "" {
+		return ctx.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Foto não encontrada"})
+	}
+	if _, err := os.Stat(motorista.FotoPerfil); err != nil {
+		return ctx.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Arquivo ausente"})
+	}
+	return ctx.SendFile(motorista.FotoPerfil)
 }
 
 // (Removido endpoint de validação automática)
@@ -223,6 +249,81 @@ func (c *MotoristaController) RejeitarMotorista(ctx *fiber.Ctx) error {
 	return ctx.JSON(fiber.Map{
 		"message": "Motorista rejeitado",
 	})
+}
+
+// AtualizarPerfil PUT /api/profile/:id
+func (c *MotoristaController) AtualizarPerfil(ctx *fiber.Ctx) error {
+	id := ctx.Params("id")
+	var body struct {
+		Telefone string `json:"telefone"`
+		Email    string `json:"email"`
+	}
+	if err := ctx.BodyParser(&body); err != nil {
+		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Dados inválidos"})
+	}
+	m, err := c.motoristaService.AtualizarPerfil(id, body.Telefone, body.Email)
+	if err != nil {
+		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+	return ctx.JSON(fiber.Map{"message": "Perfil atualizado com sucesso", "motorista": m})
+}
+
+// AlterarSenha PUT /api/profile/:id/password
+func (c *MotoristaController) AlterarSenha(ctx *fiber.Ctx) error {
+	id := ctx.Params("id")
+	var body struct {
+		SenhaAtual  string `json:"senha_atual"`
+		NovaSenha   string `json:"nova_senha"`
+		Confirmacao string `json:"confirmacao"`
+	}
+	if err := ctx.BodyParser(&body); err != nil {
+		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Dados inválidos"})
+	}
+	if err := c.motoristaService.AlterarSenha(id, body.SenhaAtual, body.NovaSenha, body.Confirmacao); err != nil {
+		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+	return ctx.JSON(fiber.Map{"message": "Senha alterada com sucesso"})
+}
+
+// UploadFotoPerfil POST /api/profile/:id/photo multipart campo 'foto'
+func (c *MotoristaController) UploadFotoPerfil(ctx *fiber.Ctx) error {
+	id := ctx.Params("id")
+	fileHeader, err := ctx.FormFile("foto")
+	if err != nil {
+		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Arquivo não enviado"})
+	}
+	ext := strings.ToLower(filepath.Ext(fileHeader.Filename))
+	formato := strings.TrimPrefix(ext, ".")
+	baseDir := filepath.Join("data", id, "profile")
+	if err := os.MkdirAll(baseDir, 0755); err != nil {
+		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Falha ao criar diretório"})
+	}
+	destino := filepath.Join(baseDir, "foto"+ext)
+	if err := ctx.SaveFile(fileHeader, destino); err != nil {
+		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Falha ao salvar arquivo"})
+	}
+	if err := c.motoristaService.UploadFotoPerfil(id, destino, formato, fileHeader.Size); err != nil {
+		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+	return ctx.JSON(fiber.Map{"message": "Foto de perfil atualizada com sucesso", "caminho": destino})
+}
+
+// SolicitarExclusao POST /api/profile/:id/request-deletion
+func (c *MotoristaController) SolicitarExclusao(ctx *fiber.Ctx) error {
+	id := ctx.Params("id")
+	if err := c.motoristaService.SolicitarExclusao(id); err != nil {
+		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+	return ctx.JSON(fiber.Map{"message": "Solicitação de exclusão registrada"})
+}
+
+// ConfirmarExclusao POST /api/profile/:id/confirm-deletion
+func (c *MotoristaController) ConfirmarExclusao(ctx *fiber.Ctx) error {
+	id := ctx.Params("id")
+	if err := c.motoristaService.ConfirmarExclusao(id); err != nil {
+		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+	return ctx.JSON(fiber.Map{"message": "Sua conta foi encerrada e será excluida permanentemente em 72h"})
 }
 
 // VerificarForcaSenha POST /api/motoristas/verificar-senha

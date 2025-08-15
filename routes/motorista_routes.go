@@ -25,7 +25,13 @@ func SetupMotoristaRoutes(api fiber.Router) {
 
 	// Rotas de perfil
 	profile := apiGroup.Group("/profile")
-	profile.Get("/:id", motoristaController.BuscarMotorista) // Buscar motorista
+	profile.Get("/:id", motoristaController.BuscarMotorista)                     // Buscar motorista
+	profile.Put("/:id", motoristaController.AtualizarPerfil)                     // Atualizar telefone/email
+	profile.Put("/:id/password", motoristaController.AlterarSenha)               // Alterar senha
+	profile.Post("/:id/photo", motoristaController.UploadFotoPerfil)             // Upload foto
+	profile.Get("/:id/photo", motoristaController.FotoPerfil)                    // Obter foto
+	profile.Post("/:id/request-deletion", motoristaController.SolicitarExclusao) // Solicitar exclusão
+	profile.Post("/:id/confirm-deletion", motoristaController.ConfirmarExclusao) // Confirmar exclusão
 
 	// Rotas de documentos
 	documents := apiGroup.Group("/documents")

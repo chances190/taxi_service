@@ -47,6 +47,11 @@ type MotoristaService interface {
 	UploadDocumentosLote(motoristaID string, requests []UploadDocumentoRequest) error
 	AprovarMotorista(motoristaID string) error
 	RejeitarMotorista(motoristaID string, motivo string) error
+	AtualizarPerfil(id string, telefone string, email string) (*models.Motorista, error)
+	AlterarSenha(id, senhaAtual, novaSenha, confirmacao string) error
+	UploadFotoPerfil(id string, caminho string, formato string, tamanho int64) error
+	SolicitarExclusao(id string) error
+	ConfirmarExclusao(id string) error
 	BuscarMotorista(id string) (*models.Motorista, error)
 	VerificarForcaSenha(senha string) (string, error)
 	LoginMotorista(email, senha string) (*models.Motorista, error)
@@ -366,6 +371,98 @@ func (s *MotoristaServiceImpl) AprovarMotorista(motoristaID string) error {
 	}
 
 	return s.emailService.EnviarEmailAprovacao(motorista.Email, motorista.Nome)
+}
+
+// AtualizarPerfil atualiza telefone e email
+func (s *MotoristaServiceImpl) AtualizarPerfil(id string, telefone string, email string) (*models.Motorista, error) {
+	m, err := s.motoristaRepo.BuscarPorID(id)
+	if err != nil {
+		return nil, errors.New("motorista não encontrado")
+	}
+	if telefone != "" {
+		if !models.ValidarTelefone(telefone) {
+			return nil, errors.New("Formato de telefone inválido.")
+		}
+		m.Telefone = limparString(telefone)
+	}
+	if email != "" {
+		if !models.ValidarEmail(email) {
+			return nil, errors.New("Formato de email inválido.")
+		}
+		m.Email = strings.ToLower(strings.TrimSpace(email))
+	}
+	m.AtualizadoEm = time.Now()
+	if err := s.motoristaRepo.Atualizar(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// AlterarSenha altera senha com validações
+func (s *MotoristaServiceImpl) AlterarSenha(id, senhaAtual, novaSenha, confirmacao string) error {
+	m, err := s.motoristaRepo.BuscarPorID(id)
+	if err != nil {
+		return errors.New("motorista não encontrado")
+	}
+	if strings.TrimSpace(senhaAtual) == "" {
+		return errors.New("Senha atual é obrigatória.")
+	}
+	if m.Senha != senhaAtual {
+		return errors.New("Senha atual incorreta.")
+	}
+	if strings.TrimSpace(novaSenha) == "" {
+		return errors.New("Nova senha é obrigatória.")
+	}
+	if novaSenha != confirmacao {
+		return errors.New("Nova senha e confirmação não correspondem.")
+	}
+	if _, err := models.ValidarForcaSenha(novaSenha); err != nil {
+		return err
+	}
+	m.Senha = novaSenha
+	m.AtualizadoEm = time.Now()
+	return s.motoristaRepo.Atualizar(m)
+}
+
+// UploadFotoPerfil salva caminho da foto (arquivo já salvo pelo controller)
+func (s *MotoristaServiceImpl) UploadFotoPerfil(id string, caminho string, formato string, tamanho int64) error {
+	m, err := s.motoristaRepo.BuscarPorID(id)
+	if err != nil {
+		return errors.New("motorista não encontrado")
+	}
+	formatoU := strings.ToUpper(formato)
+	permitidos := map[string]bool{"JPG": true, "JPEG": true, "PNG": true, "WEBP": true}
+	if !permitidos[formatoU] {
+		return errors.New("Formato não suportado. Use JPG, PNG ou WEBP")
+	}
+	if tamanho > 5*1024*1024 {
+		return errors.New("Foto muito grande. Tamanho máximo: 5MB")
+	}
+	m.FotoPerfil = caminho
+	m.AtualizadoEm = time.Now()
+	return s.motoristaRepo.Atualizar(m)
+}
+
+// SolicitarExclusao marca status aguardando_exclusao
+func (s *MotoristaServiceImpl) SolicitarExclusao(id string) error {
+	m, err := s.motoristaRepo.BuscarPorID(id)
+	if err != nil {
+		return errors.New("motorista não encontrado")
+	}
+	m.Status = models.StatusAguardandoExclusao
+	m.AtualizadoEm = time.Now()
+	return s.motoristaRepo.Atualizar(m)
+}
+
+// ConfirmarExclusao marca status encerrado
+func (s *MotoristaServiceImpl) ConfirmarExclusao(id string) error {
+	m, err := s.motoristaRepo.BuscarPorID(id)
+	if err != nil {
+		return errors.New("motorista não encontrado")
+	}
+	m.Status = models.StatusEncerrado
+	m.AtualizadoEm = time.Now()
+	return s.motoristaRepo.Atualizar(m)
 }
 
 // RejeitarMotorista rejeita um motorista com motivo

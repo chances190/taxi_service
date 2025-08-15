@@ -15,6 +15,7 @@ const (
 	StatusDocumentosAnalise   StatusMotorista = "documentos_em_analise"
 	StatusAprovado            StatusMotorista = "aprovado"
 	StatusRejeitado           StatusMotorista = "documentos_rejeitados"
+	StatusAguardandoExclusao  StatusMotorista = "aguardando_exclusao"
 	StatusAtivo               StatusMotorista = "ativo"
 	StatusEncerrado           StatusMotorista = "encerrado"
 )
@@ -49,6 +50,7 @@ type Motorista struct {
 	Email          string          `json:"email" validate:"required,email"`
 	Senha          string          `json:"senha" validate:"required,min=8"`
 	Status         StatusMotorista `json:"status"`
+	FotoPerfil     string          `json:"foto_perfil"`
 	CriadoEm       time.Time       `json:"criado_em"`
 	AtualizadoEm   time.Time       `json:"atualizado_em"`
 	Documentos     []Documento     `json:"documentos"`
