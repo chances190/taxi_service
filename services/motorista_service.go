@@ -37,12 +37,14 @@ type UploadDocumentoRequest struct {
 	Tamanho        int64  `json:"tamanho" validate:"required"`
 }
 
+var documentosObrigatorios = []string{"CNH", "CRLV", "selfie_cnh"}
+
 // MotoristaService define a interface para serviços de motorista
 type MotoristaService interface {
 	CadastrarMotorista(request CadastroMotoristaRequest) (*models.Motorista, error)
 	ValidarDadosCadastro(request CadastroMotoristaRequest) error
 	UploadDocumento(motoristaID string, request UploadDocumentoRequest) error
-	ValidarDocumentos(motoristaID string) error
+	UploadDocumentosLote(motoristaID string, requests []UploadDocumentoRequest) error
 	AprovarMotorista(motoristaID string) error
 	RejeitarMotorista(motoristaID string, motivo string) error
 	BuscarMotorista(id string) (*models.Motorista, error)
@@ -205,6 +207,30 @@ func (s *MotoristaServiceImpl) UploadDocumento(motoristaID string, request Uploa
 		return err
 	}
 
+	// Normalizar tipo de documento (aceitar variações da selfie)
+	tipo := strings.TrimSpace(strings.ToUpper(request.TipoDocumento))
+	if strings.Contains(tipo, "SELFIE") { // aceita "SELFIE COM CNH" etc
+		request.TipoDocumento = "selfie_cnh"
+	}
+	if tipo == "CRLV" { // já correto, apenas manter caixa
+		request.TipoDocumento = "CRLV"
+	}
+	if tipo == "CNH" { // manter
+		request.TipoDocumento = "CNH"
+	}
+
+	// Validar se é um tipo permitido
+	permitido := false
+	for _, td := range documentosObrigatorios {
+		if td == request.TipoDocumento {
+			permitido = true
+			break
+		}
+	}
+	if !permitido {
+		return errors.New("tipo de documento inválido")
+	}
+
 	// Buscar motorista
 	motorista, err := s.motoristaRepo.BuscarPorID(motoristaID)
 	if err != nil {
@@ -245,9 +271,7 @@ func (s *MotoristaServiceImpl) UploadDocumento(motoristaID string, request Uploa
 	motorista.AtualizadoEm = time.Now()
 
 	// Verificar se todos os documentos obrigatórios foram enviados
-	documentosObrigatorios := []string{"CNH", "CRLV", "selfie_cnh"}
 	todosEnviados := true
-
 	for _, tipoObrigatorio := range documentosObrigatorios {
 		encontrado := false
 		for _, doc := range motorista.Documentos {
@@ -281,35 +305,33 @@ func (s *MotoristaServiceImpl) UploadDocumento(motoristaID string, request Uploa
 	return nil
 }
 
-// ValidarDocumentos executa validação automática de documentos
-func (s *MotoristaServiceImpl) ValidarDocumentos(motoristaID string) error {
-	motorista, err := s.motoristaRepo.BuscarPorID(motoristaID)
-	if err != nil {
-		return errors.New("motorista não encontrado")
+// UploadDocumentosLote faz upload de vários documentos em uma única chamada
+func (s *MotoristaServiceImpl) UploadDocumentosLote(motoristaID string, requests []UploadDocumentoRequest) error {
+	if len(requests) == 0 {
+		return errors.New("nenhum documento enviado")
 	}
-
-	// Simular validação automática (aprovação automática para testes)
-	todosAprovados := true
-	for i := range motorista.Documentos {
-		motorista.Documentos[i].Status = "aprovado"
-	}
-
-	if todosAprovados {
-		motorista.Status = models.StatusAprovado
-		motorista.AtualizadoEm = time.Now()
-
-		if err := s.motoristaRepo.Atualizar(motorista); err != nil {
-			return fmt.Errorf("erro ao atualizar status do motorista: %w", err)
+	// Map para evitar tipos duplicados na mesma requisição
+	vistos := map[string]bool{}
+	for _, r := range requests {
+		if r.TipoDocumento == "" {
+			return errors.New("tipo de documento vazio")
 		}
-
-		// Enviar email de aprovação
-		if err := s.emailService.EnviarEmailAprovacao(motorista.Email, motorista.Nome); err != nil {
-			fmt.Printf("Erro ao enviar email de aprovação: %v\n", err)
+		lower := strings.ToLower(r.TipoDocumento)
+		if strings.Contains(lower, "selfie") {
+			r.TipoDocumento = "selfie_cnh"
+		}
+		if vistos[r.TipoDocumento] {
+			return fmt.Errorf("tipo de documento duplicado: %s", r.TipoDocumento)
+		}
+		vistos[r.TipoDocumento] = true
+		if err := s.UploadDocumento(motoristaID, r); err != nil {
+			return err
 		}
 	}
-
 	return nil
 }
+
+// (Removida função de validação automática; aprovação agora é somente manual)
 
 // AprovarMotorista aprova manualmente um motorista
 func (s *MotoristaServiceImpl) AprovarMotorista(motoristaID string) error {
@@ -318,6 +340,24 @@ func (s *MotoristaServiceImpl) AprovarMotorista(motoristaID string) error {
 		return errors.New("motorista não encontrado")
 	}
 
+	// Garantir que todos os documentos obrigatórios existem antes de aprovar manualmente
+	for _, tipoObrigatorio := range documentosObrigatorios {
+		encontrado := false
+		for _, doc := range motorista.Documentos {
+			if doc.TipoDocumento == tipoObrigatorio {
+				encontrado = true
+				break
+			}
+		}
+		if !encontrado {
+			return errors.New("documentos obrigatórios pendentes")
+		}
+	}
+
+	// Marcar todos documentos como aprovados
+	for i := range motorista.Documentos {
+		motorista.Documentos[i].Status = "aprovado"
+	}
 	motorista.Status = models.StatusAprovado
 	motorista.AtualizadoEm = time.Now()
 

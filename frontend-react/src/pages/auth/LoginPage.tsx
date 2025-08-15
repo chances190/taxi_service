@@ -6,6 +6,7 @@ import * as yup from 'yup';
 import { Box, Paper, Typography, TextField, Stack, Button, Alert } from '@mui/material';
 import { useMutation } from '@tanstack/react-query';
 import api from '../../services/api';
+import { saveAuth } from '../../services/auth';
 
 interface LoginForm {
   email: string;
@@ -23,10 +24,12 @@ export default function LoginPage() {
   const { register, handleSubmit, formState: { errors } } = useForm<LoginForm>({ resolver: yupResolver(schema) });
 
   const mutation = useMutation({
-    mutationFn: (data: LoginForm) => api.post('/api/auth/login', data).then(r => r.data as { id: string }),
-    onSuccess: (data: { id: string }) => {
-      // salvar token futuramente
-      navigate(`/profile/${data.id}`);
+    mutationFn: (data: LoginForm) => api.post('/api/auth/login', data).then((r: { data: { motorista: { id: string } } }) => r.data),
+    onSuccess: (data: { motorista: { id: string } }) => {
+      if (data.motorista?.id) {
+        saveAuth({ motoristaId: data.motorista.id, role: 'user' });
+        navigate(`/profile/${data.motorista.id}`);
+      }
     },
     onError: (err: unknown) => {
       setServerError('Credenciais inválidas');

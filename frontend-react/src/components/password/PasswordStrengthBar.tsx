@@ -1,4 +1,6 @@
 import { LinearProgress, Stack, Typography } from '@mui/material';
+import { useEffect, useState } from 'react';
+import api from '../../services/api';
 
 function scorePassword(pwd: string) {
   let score = 0;
@@ -21,16 +23,36 @@ function scorePassword(pwd: string) {
 }
 
 export default function PasswordStrengthBar({ password }: { password: string }) {
-  const value = scorePassword(password);
+  const [label, setLabel] = useState<string>('');
+  const localScore = scorePassword(password);
   let color: 'error' | 'warning' | 'info' | 'success' = 'error';
-  if (value > 70) color = 'success';
-  else if (value > 50) color = 'info';
-  else if (value > 30) color = 'warning';
+  if (localScore > 70) color = 'success';
+  else if (localScore > 50) color = 'info';
+  else if (localScore > 30) color = 'warning';
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!password) {
+      setLabel('');
+      return;
+    }
+    const t = setTimeout(async () => {
+      try {
+  const r = await api.post('/api/utils/check-password', { senha: password });
+        if (!cancelled) {
+          setLabel(r.data.forca);
+        }
+      } catch {
+        if (!cancelled) setLabel('');
+      }
+    }, 300); // debounce
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [password]);
 
   return (
     <Stack spacing={0.5}>
-      <LinearProgress variant="determinate" value={value} color={color} sx={{ height: 8, borderRadius: 1 }} />
-      <Typography variant="caption" color="text.secondary">Força da senha: {value}%</Typography>
+      <LinearProgress variant="determinate" value={localScore} color={color} sx={{ height: 8, borderRadius: 1 }} />
+      <Typography variant="caption" color="text.secondary">Força da senha: {label || localScore + '%'} </Typography>
     </Stack>
   );
 }

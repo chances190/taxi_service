@@ -1,7 +1,7 @@
 import { useParams } from 'react-router-dom';
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Avatar, Box, Button, Chip, Divider, Grid2 as Grid, Paper, Stack, TextField, Typography } from '@mui/material';
+import { Avatar, Box, Button, Chip, Divider, Paper, Stack, TextField, Typography } from '@mui/material';
 import api from '../../services/api';
 import { useState } from 'react';
 
@@ -15,16 +15,16 @@ interface Motorista {
 
 export default function ProfilePage() {
   const { id } = useParams();
-  const { data, isLoading } = useQuery<Motorista>({
+  const { data, isLoading } = useQuery<{ motorista: Motorista }>({
     queryKey: ['motorista', id],
-  queryFn: () => api.get(`/api/profile/${id}`).then((r: { data: Motorista }): Motorista => r.data),
+    queryFn: () => api.get(`/api/profile/${id}`).then((r: { data: { motorista: Motorista } }) => r.data),
     enabled: !!id
   });
 
   const [editing, setEditing] = useState(false);
   const [nome, setNome] = useState('');
 
-  const motorista = data;
+  const motorista = data?.motorista;
 
   return (
     <Paper sx={{ p: 4 }}>

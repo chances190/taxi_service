@@ -29,13 +29,12 @@ func SetupMotoristaRoutes(api fiber.Router) {
 
 	// Rotas de documentos
 	documents := apiGroup.Group("/documents")
-	documents.Post("/:id/upload", motoristaController.UploadDocumento)     // Upload de documentos
-	documents.Post("/:id/validate", motoristaController.ValidarDocumentos) // Validar documentos
-	documents.Put("/:id/approve", motoristaController.AprovarMotorista)    // Aprovar motorista
-	documents.Put("/:id/reject", motoristaController.RejeitarMotorista)    // Rejeitar motorista
+	documents.Post("/:id/upload/files", motoristaController.UploadDocumentosArquivos) // Upload múltiplo multipart (arquivos reais)
+	documents.Get("/:id/file/:tipo", motoristaController.DownloadDocumento)           // Download/visualização de arquivo
+	documents.Put("/:id/approve", motoristaController.AprovarMotorista)               // Aprovar motorista
+	documents.Put("/:id/reject", motoristaController.RejeitarMotorista)               // Rejeitar motorista
 
 	// Rotas utilitárias
 	utils := apiGroup.Group("/utils")
-	utils.Post("/check-password", motoristaController.VerificarForcaSenha)     // Verificar força da senha
-	utils.Post("/validate-upload", motoristaController.ValidarDocumentoUpload) // Validar upload de documento
+	utils.Post("/check-password", motoristaController.VerificarForcaSenha) // Verificar força da senha
 }

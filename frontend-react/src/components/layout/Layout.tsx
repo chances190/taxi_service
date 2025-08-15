@@ -20,6 +20,8 @@ export default function Layout({ children }: PropsWithChildren) {
       </Container>
       <Box component="footer" sx={{ py: 2, textAlign: 'center', opacity: 0.6, fontSize: 12 }}>
         &copy; {new Date().getFullYear()} Taxi Service
+        <br/>
+         Made with :'( and {'</>'} by Sanches
       </Box>
     </Box>
   );
