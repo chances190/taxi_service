@@ -1,9 +1,12 @@
 import { useParams } from 'react-router-dom';
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Avatar, Box, Button, Chip, Divider, Paper, Stack, TextField, Typography, Alert, LinearProgress } from '@mui/material';
+import { Avatar, Box, Chip, Divider, Paper, Stack, TextField, Typography, LinearProgress } from '@mui/material';
+import AppButton from '../../components/ui/AppButton';
+import AppAlert from '../../components/ui/AppAlert';
+import FieldRow from '../../components/ui/FieldRow';
 import { useQueryClient } from '@tanstack/react-query';
-import api from '../../services/api';
+import api from '@services/api';
 import { useState } from 'react';
 
 interface Motorista {
@@ -73,41 +76,25 @@ export default function ProfilePage() {
                 { label:'Placa', value: motorista.placa_veiculo },
                 { label:'Modelo', value: motorista.modelo_veiculo }
               ].map(f => (
-                <Box
-                  key={f.label}
-                  sx={{
-                    display:'flex',
-                    justifyContent:'space-between',
-                    gap:2,
-                    px:1.25,
-                    py:0.75,
-                    borderRadius:1,
-                    border:'1px solid',
-                    borderColor:'divider',
-                    bgcolor: theme => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'
-                  }}
-                >
-                  <Typography variant="caption" color="text.secondary" sx={{ minWidth:120, letterSpacing:0.25 }}>{f.label}</Typography>
-                  <Typography variant="body2" sx={{ textAlign:'right', flex:1, fontWeight:500 }}>{f.value || '-'}</Typography>
-                </Box>
+                <FieldRow key={f.label} label={f.label} value={f.value} />
               ))}
             </Stack>
           </Box>
           <Divider flexItem />
           <Stack spacing={3} alignItems="center">
-            {msg && <Alert severity="success" onClose={() => setMsg('')}>{msg}</Alert>}
-            {err && <Alert severity="error" onClose={() => setErr('')}>{err}</Alert>}
+            {msg && <AppAlert severity="success" show onClose={() => setMsg('')}>{msg}</AppAlert>}
+            {err && <AppAlert severity="error" show onClose={() => setErr('')}>{err}</AppAlert>}
             <Stack direction="row" spacing={2} justifyContent="center" flexWrap="wrap">
-              {!editing && <Button onClick={() => { setTelefone(motorista.telefone); setEmail(motorista.email); setEditing(true);} } variant="outlined">Editar Dados</Button>}
-              {!pwEditing && <Button onClick={() => setPwEditing(true)} variant="outlined">Alterar Senha</Button>}
+              {!editing && <AppButton onClick={() => { setTelefone(motorista.telefone); setEmail(motorista.email); setEditing(true);} } variant="outlined">Editar Dados</AppButton>}
+              {!pwEditing && <AppButton onClick={() => setPwEditing(true)} variant="outlined">Alterar Senha</AppButton>}
             </Stack>
             {editing && (
               <Stack spacing={2} component="form" sx={{ width:'100%', maxWidth:400 }} onSubmit={async (e: React.FormEvent) => { e.preventDefault(); setErr(''); setMsg(''); try { const r = await api.put(`/api/profile/${id}`, { telefone, email }); setMsg(r.data.message); setEditing(false); queryClient.invalidateQueries({ queryKey:['motorista', id] }); } catch(e:any){ setErr(e.response?.data?.error || 'Erro ao atualizar'); } }}>
                 <TextField label="Telefone" value={telefone} onChange={e => setTelefone(e.target.value)} size="small" />
                 <TextField label="Email" value={email} onChange={e => setEmail(e.target.value)} size="small" />
                 <Stack direction="row" spacing={1}>
-                  <Button type="submit" variant="contained" size="small">Salvar</Button>
-                  <Button variant="text" size="small" onClick={() => setEditing(false)}>Cancelar</Button>
+                  <AppButton type="submit" variant="contained" size="small">Salvar</AppButton>
+                  <AppButton variant="text" size="small" onClick={() => setEditing(false)}>Cancelar</AppButton>
                 </Stack>
               </Stack>
             )}
@@ -117,8 +104,8 @@ export default function ProfilePage() {
                 <TextField label="Nova Senha" type="password" value={novaSenha} onChange={e => setNovaSenha(e.target.value)} size="small" />
                 <TextField label="Confirmar" type="password" value={confirmacao} onChange={e => setConfirmacao(e.target.value)} size="small" />
                 <Stack direction="row" spacing={1}>
-                  <Button type="submit" variant="contained" size="small">Salvar</Button>
-                  <Button variant="text" size="small" onClick={() => setPwEditing(false)}>Cancelar</Button>
+                  <AppButton type="submit" variant="contained" size="small">Salvar</AppButton>
+                  <AppButton variant="text" size="small" onClick={() => setPwEditing(false)}>Cancelar</AppButton>
                 </Stack>
               </Stack>
             )}
@@ -126,20 +113,20 @@ export default function ProfilePage() {
             <Divider flexItem />
             <Typography variant="subtitle1" textAlign="center">Foto de Perfil</Typography>
             <Stack direction="row" spacing={2} justifyContent="center" alignItems="center" sx={{ width:'100%', maxWidth:400 }}>
-              <Button component="label" variant="outlined" size="small" disabled={photoUploading}>
+              <AppButton component="label" variant="outlined" size="small" loading={photoUploading} loadingPosition="center">
                 {photoUploading ? 'Enviando...' : 'Enviar Foto'}
                 <input hidden type="file" accept="image/*" onChange={async e => { const file = e.target.files?.[0]; if(!file || !id) return; setErr(''); setMsg(''); setPhotoUploading(true); try { const fd = new FormData(); fd.append('foto', file); const r = await api.post(`/api/profile/${id}/photo`, fd, { headers:{'Content-Type':'multipart/form-data'} }); setMsg(r.data.message); queryClient.invalidateQueries({ queryKey:['motorista', id] }); } catch(er:any){ setErr(er.response?.data?.error || 'Erro no upload'); } finally { setPhotoUploading(false);} }} />
-              </Button>
+              </AppButton>
               {photoUploading && <LinearProgress sx={{ flex:1 }} />}
             </Stack>
 
             <Divider flexItem />
             <Typography variant="subtitle1" textAlign="center">Excluir Conta</Typography>
-            {!deletionRequested && <Button color="error" variant="outlined" size="small" onClick={async ()=>{ if(!id) return; setErr(''); setMsg(''); try { await api.post(`/api/profile/${id}/request-deletion`); setDeletionRequested(true);} catch(e:any){ setErr(e.response?.data?.error || 'Erro ao solicitar exclusão'); } }} sx={{ mx:'auto' }}>Solicitar exclusão</Button>}
+            {!deletionRequested && <AppButton color="error" variant="outlined" size="small" onClick={async ()=>{ if(!id) return; setErr(''); setMsg(''); try { await api.post(`/api/profile/${id}/request-deletion`); setDeletionRequested(true);} catch(e:any){ setErr(e.response?.data?.error || 'Erro ao solicitar exclusão'); } }} sx={{ mx:'auto' }}>Solicitar exclusão</AppButton>}
             {deletionRequested && (
-              <Alert
+              <AppAlert
                 severity="warning"
-                variant="outlined"
+                show
                 sx={{
                   mx:'auto',
                   borderColor:'warning.main',
@@ -147,7 +134,7 @@ export default function ProfilePage() {
                 }}
               >
                 Solicitação enviada. Verifique seu email.
-              </Alert>
+              </AppAlert>
             )}
           </Stack>
         </Stack>

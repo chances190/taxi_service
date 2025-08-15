@@ -1,7 +1,9 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useMemo } from 'react';
-import { Box, Button, Paper, Stack, Typography, Alert, LinearProgress, Chip } from '@mui/material';
-import api from '../../services/api';
+import { Box, Paper, Stack, Typography, LinearProgress, Chip } from '@mui/material';
+import AppButton from '../../components/ui/AppButton';
+import AppAlert from '../../components/ui/AppAlert';
+import api from '@services/api';
 
 interface SingleDoc {
   file?: File;
@@ -104,7 +106,7 @@ export default function DocumentUploadPage() {
           </Stack>
         )}
         {!!pendentes.length && (
-          <Alert severity="info" sx={{ mb: 0 }}>Faltam: {pendentes.join(', ')}</Alert>
+          <AppAlert severity="info" show sx={{ mb: 0 }}>Faltam: {pendentes.join(', ')}</AppAlert>
         )}
   <Stack spacing={2}>
           {(['CNH','CRLV','selfie_cnh'] as const).map(tipo => {
@@ -116,10 +118,10 @@ export default function DocumentUploadPage() {
                     <Typography fontWeight={600}>{tipo === 'selfie_cnh' ? 'Selfie c/ CNH' : tipo}</Typography>
         {d.file && <Chip size="small" color="success" label="Selecionado" />}
                   </Stack>
-                  <Button component="label" variant="outlined" size="small" sx={{ alignSelf: 'flex-start' }}>
+                  <AppButton component="label" variant="outlined" size="small" sx={{ alignSelf: 'flex-start' }}>
                     {d.file ? 'Trocar arquivo' : 'Selecionar arquivo'}
                     <input hidden type="file" accept="image/*,.pdf" onChange={handleFile(tipo)} />
-                  </Button>
+                  </AppButton>
                   {d.caminho_arquivo && <Typography variant="caption">{d.caminho_arquivo}</Typography>}
                   {d.preview && <Box component="img" src={d.preview} alt={tipo} sx={{ maxWidth: 240, borderRadius: 1, border: '1px solid', borderColor: 'divider' }} />}
                 </Stack>
@@ -128,20 +130,20 @@ export default function DocumentUploadPage() {
           })}
         </Stack>
         {loading && <LinearProgress />}
-        {error && <Alert severity="error">{error}</Alert>}
-        {success && <Alert severity="success">{success}</Alert>}
+  {error && <AppAlert severity="error" show>{error}</AppAlert>}
+  {success && <AppAlert severity="success" show>{success}</AppAlert>}
         <Stack direction="row" spacing={2} flexWrap="wrap">
-          <Button onClick={uploadBatch} variant="contained" disabled={loading || !Object.values(state.docs).some(d => d.file)}>Enviar Documentos</Button>
-          <Button variant="text" onClick={() => navigate(-1)}>Voltar</Button>
+          <AppButton onClick={uploadBatch} variant="contained" disabled={loading || !Object.values(state.docs).some(d => d.file)} loading={loading}>Enviar Documentos</AppButton>
+          <AppButton variant="text" onClick={() => navigate(-1)}>Voltar</AppButton>
           {todosEnviados && status !== 'documentos_em_analise' && (
-            <Button variant="outlined" color="info" onClick={fetchStatus}>Atualizar Status</Button>
+            <AppButton variant="outlined" color="info" onClick={fetchStatus}>Atualizar Status</AppButton>
           )}
         </Stack>
         {status === 'documentos_em_analise' && (
-          <Alert severity="info">Todos os documentos enviados. Aguarde a análise.</Alert>
+          <AppAlert severity="info" show>Todos os documentos enviados. Aguarde a análise.</AppAlert>
         )}
         {status === 'aprovado' && (
-          <Alert severity="success">Cadastro aprovado!</Alert>
+          <AppAlert severity="success" show>Cadastro aprovado!</AppAlert>
         )}
       </Stack>
     </Paper>

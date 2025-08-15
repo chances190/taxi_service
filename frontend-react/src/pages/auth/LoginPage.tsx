@@ -3,10 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
-import { Box, Paper, Typography, TextField, Stack, Button, Alert } from '@mui/material';
+import { Paper, Typography, Stack } from '@mui/material';
+import AppButton from '../../components/ui/AppButton';
+import AppAlert from '../../components/ui/AppAlert';
+import FormTextField from '../../components/ui/FormTextField';
 import { useMutation } from '@tanstack/react-query';
-import api from '../../services/api';
-import { saveAuth } from '../../services/auth';
+import api from '@services/api';
+import { saveAuth } from '@services/auth';
 
 interface LoginForm {
   email: string;
@@ -43,12 +46,12 @@ export default function LoginPage() {
     <Paper sx={{ p: 4, backdropFilter: 'blur(6px)' }}>
       <Typography variant="h4" mb={2}>Entrar</Typography>
       <Stack component="form" onSubmit={handleSubmit(onSubmit)} spacing={2}>
-        {serverError && <Alert severity="error">{serverError}</Alert>}
-        <TextField label="E-mail" type="email" fullWidth size="small" {...register('email')} error={!!errors.email} helperText={errors.email?.message} />
-        <TextField label="Senha" type="password" fullWidth size="small" {...register('password')} error={!!errors.password} helperText={errors.password?.message} />
-        <Button type="submit" variant="contained" size="large" disabled={mutation.isPending}>Acessar</Button>
-        <Button variant="text" onClick={() => navigate('/register')}>Criar conta</Button>
-        <Button variant="text" onClick={() => navigate('/documents/placeholder/review')} sx={{ alignSelf: 'flex-start' }}>Recuperar conta</Button>
+  {serverError && <AppAlert severity="error" show>{serverError}</AppAlert>}
+  <FormTextField label="E-mail" type="email" {...register('email')} error={!!errors.email} helperText={errors.email?.message} />
+  <FormTextField label="Senha" type="password" {...register('password')} error={!!errors.password} helperText={errors.password?.message} />
+  <AppButton type="submit" variant="contained" size="large" loading={mutation.isPending}>Acessar</AppButton>
+  <AppButton variant="text" onClick={() => navigate('/register')}>Criar conta</AppButton>
+  <AppButton variant="text" onClick={() => navigate('/documents/placeholder/review')} sx={{ alignSelf: 'flex-start' }}>Recuperar conta</AppButton>
       </Stack>
     </Paper>
   );

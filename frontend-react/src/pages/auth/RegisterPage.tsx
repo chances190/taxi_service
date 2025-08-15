@@ -2,11 +2,15 @@ import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
-import { Paper, Typography, TextField, Stack, Button, Alert, LinearProgress } from '@mui/material';
+import { Paper, Typography, Stack, LinearProgress } from '@mui/material';
+import AppButton from '../../components/ui/AppButton';
+import AppAlert from '../../components/ui/AppAlert';
+import FormTextField from '../../components/ui/FormTextField';
 import { useMutation } from '@tanstack/react-query';
-import api from '../../services/api';
-import { saveAuth } from '../../services/auth';
-import PasswordStrengthBar from '../../components/password/PasswordStrengthBar';
+import api from '@services/api';
+import { saveAuth } from '@services/auth';
+// TODO: Implement PasswordStrengthBar component; temporary inline placeholder
+const PasswordStrengthBar = ({ password }: { password: string }) => null;
 
 interface RegisterForm {
   nome: string;
@@ -59,23 +63,23 @@ export default function RegisterPage() {
     <Paper sx={{ p: 4 }}>
       <Typography variant="h4" mb={2}>Criar conta</Typography>
       <Stack component="form" spacing={2} onSubmit={handleSubmit(onSubmit)}>
-  <TextField label="Nome" fullWidth size="small" {...register('nome')} error={!!errors.nome} helperText={errors.nome?.message} />
-  <TextField label="Data Nascimento (DD/MM/AAAA)" fullWidth size="small" {...register('data_nascimento')} error={!!errors.data_nascimento} helperText={errors.data_nascimento?.message} />
-  <TextField label="CPF" fullWidth size="small" {...register('cpf')} error={!!errors.cpf} helperText={errors.cpf?.message} />
-  <TextField label="Telefone" fullWidth size="small" {...register('telefone')} error={!!errors.telefone} helperText={errors.telefone?.message} />
-  <TextField label="E-mail" fullWidth size="small" {...register('email')} error={!!errors.email} helperText={errors.email?.message} />
-  <TextField label="CNH" fullWidth size="small" {...register('cnh')} error={!!errors.cnh} helperText={errors.cnh?.message} />
-  <TextField label="Categoria CNH" fullWidth size="small" {...register('categoria_cnh')} error={!!errors.categoria_cnh} helperText={errors.categoria_cnh?.message} />
-  <TextField label="Validade CNH (DD/MM/AAAA)" fullWidth size="small" {...register('validade_cnh')} error={!!errors.validade_cnh} helperText={errors.validade_cnh?.message} />
-  <TextField label="Placa Veículo" fullWidth size="small" {...register('placa_veiculo')} error={!!errors.placa_veiculo} helperText={errors.placa_veiculo?.message} />
-  <TextField label="Modelo Veículo" fullWidth size="small" {...register('modelo_veiculo')} error={!!errors.modelo_veiculo} helperText={errors.modelo_veiculo?.message} />
-  <TextField label="Senha" type="password" fullWidth size="small" {...register('senha')} error={!!errors.senha} helperText={errors.senha?.message} />
+  <FormTextField label="Nome" {...register('nome')} error={!!errors.nome} helperText={errors.nome?.message} />
+  <FormTextField label="Data Nascimento (DD/MM/AAAA)" {...register('data_nascimento')} error={!!errors.data_nascimento} helperText={errors.data_nascimento?.message} />
+  <FormTextField label="CPF" {...register('cpf')} error={!!errors.cpf} helperText={errors.cpf?.message} />
+  <FormTextField label="Telefone" {...register('telefone')} error={!!errors.telefone} helperText={errors.telefone?.message} />
+  <FormTextField label="E-mail" {...register('email')} error={!!errors.email} helperText={errors.email?.message} />
+  <FormTextField label="CNH" {...register('cnh')} error={!!errors.cnh} helperText={errors.cnh?.message} />
+  <FormTextField label="Categoria CNH" {...register('categoria_cnh')} error={!!errors.categoria_cnh} helperText={errors.categoria_cnh?.message} />
+  <FormTextField label="Validade CNH (DD/MM/AAAA)" {...register('validade_cnh')} error={!!errors.validade_cnh} helperText={errors.validade_cnh?.message} />
+  <FormTextField label="Placa Veículo" {...register('placa_veiculo')} error={!!errors.placa_veiculo} helperText={errors.placa_veiculo?.message} />
+  <FormTextField label="Modelo Veículo" {...register('modelo_veiculo')} error={!!errors.modelo_veiculo} helperText={errors.modelo_veiculo?.message} />
+  <FormTextField label="Senha" type="password" {...register('senha')} error={!!errors.senha} helperText={errors.senha?.message} />
   <PasswordStrengthBar password={password || ''} />
-  <TextField label="Confirmar Senha" type="password" fullWidth size="small" {...register('confirmacao_senha')} error={!!errors.confirmacao_senha} helperText={errors.confirmacao_senha?.message} />
+  <FormTextField label="Confirmar Senha" type="password" {...register('confirmacao_senha')} error={!!errors.confirmacao_senha} helperText={errors.confirmacao_senha?.message} />
         {mutation.isPending && <LinearProgress />}
-        {mutation.error && <Alert severity="error">Falha ao registrar</Alert>}
-        <Button type="submit" variant="contained" size="large" disabled={mutation.isPending}>Registrar</Button>
-        <Button variant="text" onClick={() => navigate('/login')}>Já tenho conta</Button>
+  {mutation.error && <AppAlert severity="error" show>Falha ao registrar</AppAlert>}
+  <AppButton type="submit" variant="contained" size="large" loading={mutation.isPending}>Registrar</AppButton>
+  <AppButton variant="text" onClick={() => navigate('/login')}>Já tenho conta</AppButton>
       </Stack>
     </Paper>
   );

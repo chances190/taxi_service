@@ -1,7 +1,9 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { Alert, Button, Paper, Stack, Typography, List, ListItem, ListItemText, CircularProgress } from '@mui/material';
-import api from '../../services/api';
+import { Paper, Stack, Typography, List, ListItem, ListItemText, CircularProgress } from '@mui/material';
+import AppButton from '../../components/ui/AppButton';
+import AppAlert from '../../components/ui/AppAlert';
+import api from '@services/api';
 
 export default function DocumentReviewPage() {
   const { id } = useParams();
@@ -55,22 +57,22 @@ export default function DocumentReviewPage() {
     <Paper sx={{ p: 4 }}>
       <Stack spacing={3}>
   <Typography variant="h5">Revisão de Documentos (Admin)</Typography>
-  <Alert severity="warning" variant="outlined">Área restrita a administradores. Autenticação será aplicada quando middleware estiver disponível.</Alert>
-        {error && <Alert severity="error">{error}</Alert>}
-        <Alert severity={status === 'approved' ? 'success' : status === 'rejected' ? 'error' : 'info'}>
+  <AppAlert severity="warning" show>Área restrita a administradores. Autenticação será aplicada quando middleware estiver disponível.</AppAlert>
+        {error && <AppAlert severity="error" show>{error}</AppAlert>}
+        <AppAlert severity={status === 'approved' ? 'success' : status === 'rejected' ? 'error' : 'info'} show>
           Status: {status === 'in_review' ? 'Em análise' : status === 'approved' ? 'Aprovado' : 'Rejeitado'}
-        </Alert>
+        </AppAlert>
         <Stack direction="row" spacing={2}>
-          <Button variant="contained" color="success" onClick={approve}>Aprovar</Button>
-          <Button variant="contained" color="error" onClick={reject}>Rejeitar</Button>
-          <Button variant="text" onClick={() => navigate(`/profile/${id}`)}>Voltar ao perfil</Button>
+          <AppButton variant="contained" color="success" onClick={approve}>Aprovar</AppButton>
+          <AppButton variant="contained" color="error" onClick={reject}>Rejeitar</AppButton>
+          <AppButton variant="text" onClick={() => navigate(`/profile/${id}`)}>Voltar ao perfil</AppButton>
         </Stack>
         <Typography variant="h6">Documentos</Typography>
         <List dense>
           {docs.map(d => (
             <ListItem key={d.tipo_documento} divider secondaryAction={
               d.caminho_arquivo ? (
-                <Button size="small" variant="outlined" onClick={async () => {
+                <AppButton size="small" variant="outlined" onClick={async () => {
                   if (!id) return;
                   setError('');
                   setOpening(d.tipo_documento);
@@ -84,7 +86,7 @@ export default function DocumentReviewPage() {
                   } finally {
                     setOpening('');
                   }
-                }} endIcon={opening===d.tipo_documento ? <CircularProgress size={14} /> : undefined}>Abrir</Button>
+                }} endIcon={opening===d.tipo_documento ? <CircularProgress size={14} /> : undefined}>Abrir</AppButton>
               ) : null
             }>
               <ListItemText
