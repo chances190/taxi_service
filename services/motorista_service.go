@@ -82,6 +82,17 @@ func NewMotoristaService(motoristaRepo repositories.MotoristaRepository, emailSe
 
 // CadastrarMotorista realiza o cadastro de um novo motorista
 func (s *MotoristaServiceImpl) CadastrarMotorista(request CadastroMotoristaRequest) (*models.Motorista, error) {
+	// Sanitização inicial (remoção de máscara / espaços) antes de qualquer validação
+	request.CPF = DigitsOnly(request.CPF)
+	request.CNH = DigitsOnly(request.CNH)
+	request.Telefone = DigitsOnly(request.Telefone)
+	request.PlacaVeiculo = strings.ToUpper(strings.TrimSpace(strings.ReplaceAll(request.PlacaVeiculo, "-", "")))
+	request.Email = strings.ToLower(strings.TrimSpace(request.Email))
+	request.Nome = strings.TrimSpace(request.Nome)
+	request.ModeloVeiculo = strings.TrimSpace(request.ModeloVeiculo)
+	request.Senha = strings.TrimSpace(request.Senha)
+	request.ConfirmacaoSenha = strings.TrimSpace(request.ConfirmacaoSenha)
+
 	// Validar dados de entrada
 	if err := s.ValidarDadosCadastro(request); err != nil {
 		return nil, err
@@ -129,14 +140,14 @@ func (s *MotoristaServiceImpl) CadastrarMotorista(request CadastroMotoristaReque
 		ID:             uuid.New().String(),
 		Nome:           request.Nome,
 		DataNascimento: dataNascimento,
-		CPF:            limparString(request.CPF),
-		CNH:            limparString(request.CNH),
+		CPF:            request.CPF,
+		CNH:            request.CNH,
 		CategoriaCNH:   models.CategoriaCNH(request.CategoriaCNH),
 		ValidadeCNH:    validadeCNH,
-		PlacaVeiculo:   strings.ToUpper(strings.TrimSpace(request.PlacaVeiculo)),
+		PlacaVeiculo:   request.PlacaVeiculo,
 		ModeloVeiculo:  request.ModeloVeiculo,
-		Telefone:       limparString(request.Telefone),
-		Email:          strings.ToLower(strings.TrimSpace(request.Email)),
+		Telefone:       request.Telefone,
+		Email:          request.Email,
 		Senha:          request.Senha, // Em produção, seria hasheada
 		Status:         models.StatusAguardandoAprovacao,
 		CriadoEm:       time.Now(),
@@ -350,53 +361,72 @@ func (s *MotoristaServiceImpl) AprovarMotorista(motoristaID string) error {
 
 // AtualizarPerfil atualiza telefone e email
 func (s *MotoristaServiceImpl) AtualizarPerfil(id string, telefone string, email string) (*models.Motorista, error) {
-	m, err := s.getMotorista(id)
+	motorista, err := s.getMotorista(id)
 	if err != nil {
 		return nil, err
 	}
+
+	telefone = DigitsOnly(telefone)
+	email = strings.ToLower(strings.TrimSpace(email))
+
 	if telefone != "" {
 		if err := models.ValidarTelefone(telefone); err != nil {
 			return nil, err
 		}
-		m.Telefone = limparString(telefone)
+		motorista.Telefone = telefone
 	}
+
 	if email != "" {
 		if err := models.ValidarEmail(email); err != nil {
 			return nil, err
 		}
-		m.Email = strings.ToLower(strings.TrimSpace(email))
+		motorista.Email = email
 	}
-	m.AtualizadoEm = time.Now()
-	if err := s.motoristaRepo.Atualizar(m); err != nil {
-		return nil, err
+
+	// Atualizar timestamp e salvar alterações
+	motorista.AtualizadoEm = time.Now()
+	if err := s.motoristaRepo.Atualizar(motorista); err != nil {
+		return nil, fmt.Errorf("erro ao atualizar perfil do motorista: %w", err)
 	}
-	return m, nil
+
+	return motorista, nil
 }
 
 // AlterarSenha altera senha com validações
 func (s *MotoristaServiceImpl) AlterarSenha(id, senhaAtual, novaSenha, confirmacao string) error {
-	m, err := s.getMotorista(id)
+	motorista, err := s.getMotorista(id)
 	if err != nil {
 		return err
 	}
-	if strings.TrimSpace(senhaAtual) == "" {
+
+	senhaAtual = strings.TrimSpace(senhaAtual)
+	novaSenha = strings.TrimSpace(novaSenha)
+	confirmacao = strings.TrimSpace(confirmacao)
+
+	if senhaAtual == "" {
 		return apperrors.ErrCampoObrigatorio
 	}
-	if m.Senha != senhaAtual {
+	if motorista.Senha != senhaAtual {
 		return apperrors.ErrSenhaAtualIncorreta
 	}
-	if strings.TrimSpace(novaSenha) == "" {
+	if novaSenha == "" {
 		return apperrors.ErrCampoObrigatorio
 	}
 	if novaSenha != confirmacao {
 		return apperrors.ErrSenhasNaoConferem
 	}
 	if _, err := models.ValidarForcaSenha(novaSenha); err != nil {
-		return apperrors.ErrSenhaFraca
+		return err
 	}
-	m.Senha = novaSenha
-	m.AtualizadoEm = time.Now()
-	return s.motoristaRepo.Atualizar(m)
+
+	motorista.Senha = novaSenha
+	motorista.AtualizadoEm = time.Now()
+
+	if err := s.motoristaRepo.Atualizar(motorista); err != nil {
+		return fmt.Errorf("erro ao alterar senha do motorista: %w", err)
+	}
+
+	return nil
 }
 
 // UploadFotoPerfil salva caminho da foto (arquivo já salvo pelo controller)
@@ -480,7 +510,7 @@ func (s *MotoristaServiceImpl) LoginMotorista(email, senha string) (*models.Moto
 	return motorista, nil
 }
 
-// limparString remove caracteres especiais de strings como CPF, CNH e telefone
-func limparString(s string) string {
+// DigitsOnly remove caracteres especiais de strings como CPF, CNH e telefone
+func DigitsOnly(s string) string {
 	return regexp.MustCompile(`\D`).ReplaceAllString(s, "")
 }

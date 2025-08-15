@@ -19,8 +19,9 @@
   "paths": {
       "@services/*": ["services/*"],
       "@components/*": ["components/*"],
-      "@pages/*": ["pages/*"],
-      "@ui/*": ["components/ui/*"]
+  "@pages/*": ["pages/*"],
+  "@ui/*": ["components/ui/*"],
+  "@shared/*": ["shared/*"]
     }
   },
   "include": ["src"],

@@ -8,6 +8,7 @@ import AppAlert from '../../components/ui/AppAlert';
 import FormTextField from '../../components/ui/FormTextField';
 import { useMutation } from '@tanstack/react-query';
 import api from '@services/api';
+import { sanitizeCPF, sanitizeTelefone, sanitizePlaca, sanitizeCNH, sanitizeEmail } from '@shared/format';
 import { saveAuth } from '@services/auth';
 // TODO: Implement PasswordStrengthBar component; temporary inline placeholder
 const PasswordStrengthBar = ({ password }: { password: string }) => null;
@@ -57,7 +58,17 @@ export default function RegisterPage() {
     }
   });
 
-  const onSubmit = (data: RegisterForm) => mutation.mutate(data);
+  const onSubmit = (data: RegisterForm) => {
+    const payload: RegisterForm = {
+      ...data,
+      cpf: sanitizeCPF(data.cpf),
+      telefone: sanitizeTelefone(data.telefone),
+      placa_veiculo: sanitizePlaca(data.placa_veiculo),
+      cnh: sanitizeCNH(data.cnh),
+      email: sanitizeEmail(data.email)
+    };
+    mutation.mutate(payload);
+  };
 
   return (
     <Paper sx={{ p: 4 }}>

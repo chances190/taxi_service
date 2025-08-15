@@ -10,7 +10,8 @@ export default defineConfig({
       '@services': r('./src/services'),
       '@components': r('./src/components'),
       '@pages': r('./src/pages'),
-      '@ui': r('./src/components/ui')
+      '@ui': r('./src/components/ui'),
+      '@shared': r('./src/shared')
     }
   }
 });

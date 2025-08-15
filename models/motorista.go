@@ -76,11 +76,8 @@ const (
 
 // ValidarCPF valida o formato e dígitos verificadores do CPF
 func ValidarCPF(cpf string) error {
-	// Remove caracteres não numéricos
-	cpf = regexp.MustCompile(`\D`).ReplaceAllString(cpf, "")
-
-	// Verifica se tem 11 dígitos
-	if len(cpf) != 11 {
+	// Exigir somente dígitos
+	if !regexp.MustCompile(`^\d{11}$`).MatchString(cpf) {
 		return apperrors.ErrCPFInvalido
 	}
 
@@ -131,9 +128,7 @@ func ValidarCPF(cpf string) error {
 
 // ValidarCNH valida o formato da CNH
 func ValidarCNH(cnh string) error {
-	// Remove caracteres não numéricos
-	cnh = regexp.MustCompile(`\D`).ReplaceAllString(cnh, "")
-	if len(cnh) != 11 {
+	if !regexp.MustCompile(`^\d{11}$`).MatchString(cnh) {
 		return apperrors.ErrCNHInvalida
 	}
 	return nil
@@ -142,6 +137,7 @@ func ValidarCNH(cnh string) error {
 // ValidarPlaca valida o formato da placa (formato antigo e Mercosul)
 func ValidarPlaca(placa string) error {
 	placa = strings.ToUpper(strings.TrimSpace(placa))
+	placa = strings.ReplaceAll(placa, "-", "")
 
 	// Formato antigo: ABC1234
 	formatoAntigo := regexp.MustCompile(`^[A-Z]{3}\d{4}$`)
@@ -157,9 +153,8 @@ func ValidarPlaca(placa string) error {
 
 // ValidarTelefone valida o formato do telefone brasileiro
 func ValidarTelefone(telefone string) error {
-	// Remove caracteres não numéricos
-	telefone = regexp.MustCompile(`\D`).ReplaceAllString(telefone, "")
-	if !regexp.MustCompile(`^(\d{2})(9\d{8}|\d{8})$`).MatchString(telefone) {
+	// Exige somente dígitos e tamanho adequado
+	if !regexp.MustCompile(`^[1-9]{2}(9\d{8}|\d{8})$`).MatchString(telefone) {
 		return apperrors.ErrTelefoneInvalido
 	}
 	return nil

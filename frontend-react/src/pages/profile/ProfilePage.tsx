@@ -7,6 +7,7 @@ import AppAlert from '../../components/ui/AppAlert';
 import FieldRow from '../../components/ui/FieldRow';
 import { useQueryClient } from '@tanstack/react-query';
 import api from '@services/api';
+import { formatTelefone, formatCPF, formatPlaca, sanitizeTelefone, sanitizeEmail } from '@shared/format';
 import { useState } from 'react';
 
 interface Motorista {
@@ -67,13 +68,13 @@ export default function ProfilePage() {
           <Box>
             <Typography variant="subtitle1" gutterBottom textAlign="center">Dados do Perfil</Typography>
             <Stack spacing={1} sx={{ maxWidth:600, mx:'auto' }}>
-              {[ 
-                { label:'Telefone', value: motorista.telefone },
-                { label:'CPF', value: motorista.cpf },
+              {[
+                { label:'Telefone', value: formatTelefone(motorista.telefone) },
+                { label:'CPF', value: formatCPF(motorista.cpf) },
                 { label:'CNH', value: motorista.cnh },
                 { label:'Categoria CNH', value: motorista.categoria_cnh },
                 { label:'Validade CNH', value: motorista.validade_cnh ? new Date(motorista.validade_cnh).toLocaleDateString() : '' },
-                { label:'Placa', value: motorista.placa_veiculo },
+                { label:'Placa', value: formatPlaca(motorista.placa_veiculo) },
                 { label:'Modelo', value: motorista.modelo_veiculo }
               ].map(f => (
                 <FieldRow key={f.label} label={f.label} value={f.value} />
@@ -89,7 +90,7 @@ export default function ProfilePage() {
               {!pwEditing && <AppButton onClick={() => setPwEditing(true)} variant="outlined">Alterar Senha</AppButton>}
             </Stack>
             {editing && (
-              <Stack spacing={2} component="form" sx={{ width:'100%', maxWidth:400 }} onSubmit={async (e: React.FormEvent) => { e.preventDefault(); setErr(''); setMsg(''); try { const r = await api.put(`/api/profile/${id}`, { telefone, email }); setMsg(r.data.message); setEditing(false); queryClient.invalidateQueries({ queryKey:['motorista', id] }); } catch(e:any){ setErr(e.response?.data?.error || 'Erro ao atualizar'); } }}>
+              <Stack spacing={2} component="form" sx={{ width:'100%', maxWidth:400 }} onSubmit={async (e: React.FormEvent) => { e.preventDefault(); setErr(''); setMsg(''); try { const r = await api.put(`/api/profile/${id}`, { telefone: sanitizeTelefone(telefone), email: sanitizeEmail(email) }); setMsg(r.data.message); setEditing(false); queryClient.invalidateQueries({ queryKey:['motorista', id] }); } catch(e:any){ setErr(e.response?.data?.error || 'Erro ao atualizar'); } }}>
                 <TextField label="Telefone" value={telefone} onChange={e => setTelefone(e.target.value)} size="small" />
                 <TextField label="Email" value={email} onChange={e => setEmail(e.target.value)} size="small" />
                 <Stack direction="row" spacing={1}>
