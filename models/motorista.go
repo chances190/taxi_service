@@ -1,10 +1,11 @@
 package models
 
 import (
-	"errors"
 	"regexp"
 	"strings"
 	"time"
+
+	"taxi_service/internal/apperrors"
 )
 
 // StatusMotorista representa os possíveis status de um motorista
@@ -67,14 +68,20 @@ type Documento struct {
 	CriadoEm       time.Time `json:"criado_em"`
 }
 
+// Status de documentos
+const (
+	DocumentoStatusPendente = "pendente"
+	DocumentoStatusAprovado = "aprovado"
+)
+
 // ValidarCPF valida o formato e dígitos verificadores do CPF
-func ValidarCPF(cpf string) bool {
+func ValidarCPF(cpf string) error {
 	// Remove caracteres não numéricos
 	cpf = regexp.MustCompile(`\D`).ReplaceAllString(cpf, "")
 
 	// Verifica se tem 11 dígitos
 	if len(cpf) != 11 {
-		return false
+		return apperrors.ErrCPFInvalido
 	}
 
 	// Verifica se não são todos dígitos iguais
@@ -87,7 +94,7 @@ func ValidarCPF(cpf string) bool {
 		}
 	}
 	if todosIguais {
-		return false
+		return apperrors.ErrCPFInvalido
 	}
 
 	// Calcula primeiro dígito verificador
@@ -102,7 +109,7 @@ func ValidarCPF(cpf string) bool {
 	}
 
 	if int(cpf[9]-'0') != primeiroDigito {
-		return false
+		return apperrors.ErrCPFInvalido
 	}
 
 	// Calcula segundo dígito verificador
@@ -116,20 +123,24 @@ func ValidarCPF(cpf string) bool {
 		segundoDigito = 0
 	}
 
-	return int(cpf[10]-'0') == segundoDigito
+	if int(cpf[10]-'0') != segundoDigito {
+		return apperrors.ErrCPFInvalido
+	}
+	return nil
 }
 
 // ValidarCNH valida o formato da CNH
-func ValidarCNH(cnh string) bool {
+func ValidarCNH(cnh string) error {
 	// Remove caracteres não numéricos
 	cnh = regexp.MustCompile(`\D`).ReplaceAllString(cnh, "")
-
-	// Verifica se tem 11 dígitos
-	return len(cnh) == 11
+	if len(cnh) != 11 {
+		return apperrors.ErrCNHInvalida
+	}
+	return nil
 }
 
 // ValidarPlaca valida o formato da placa (formato antigo e Mercosul)
-func ValidarPlaca(placa string) bool {
+func ValidarPlaca(placa string) error {
 	placa = strings.ToUpper(strings.TrimSpace(placa))
 
 	// Formato antigo: ABC1234
@@ -138,22 +149,29 @@ func ValidarPlaca(placa string) bool {
 	// Formato Mercosul: ABC1D23
 	formatoMercosul := regexp.MustCompile(`^[A-Z]{3}\d[A-Z]\d{2}$`)
 
-	return formatoAntigo.MatchString(placa) || formatoMercosul.MatchString(placa)
+	if formatoAntigo.MatchString(placa) || formatoMercosul.MatchString(placa) {
+		return nil
+	}
+	return apperrors.ErrPlacaInvalida
 }
 
 // ValidarTelefone valida o formato do telefone brasileiro
-func ValidarTelefone(telefone string) bool {
+func ValidarTelefone(telefone string) error {
 	// Remove caracteres não numéricos
 	telefone = regexp.MustCompile(`\D`).ReplaceAllString(telefone, "")
-
-	// Verifica formatos válidos: 11999999999 ou 1199999999
-	return regexp.MustCompile(`^(\d{2})(9\d{8}|\d{8})$`).MatchString(telefone)
+	if !regexp.MustCompile(`^(\d{2})(9\d{8}|\d{8})$`).MatchString(telefone) {
+		return apperrors.ErrTelefoneInvalido
+	}
+	return nil
 }
 
 // ValidarEmail valida o formato do email
-func ValidarEmail(email string) bool {
+func ValidarEmail(email string) error {
 	emailRegex := regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
-	return emailRegex.MatchString(email)
+	if !emailRegex.MatchString(email) {
+		return apperrors.ErrEmailInvalido
+	}
+	return nil
 }
 
 // ValidarIdade verifica se o motorista tem pelo menos 18 anos
@@ -167,7 +185,7 @@ func ValidarIdade(dataNascimento time.Time) error {
 	}
 
 	if idade < 18 {
-		return errors.New("motorista deve ter pelo menos 18 anos")
+		return apperrors.ErrMotoristaMenorIdade
 	}
 
 	return nil
@@ -176,7 +194,7 @@ func ValidarIdade(dataNascimento time.Time) error {
 // ValidarValidadeCNH verifica se a CNH não está vencida
 func ValidarValidadeCNH(validadeCNH time.Time) error {
 	if validadeCNH.Before(time.Now().Truncate(24 * time.Hour)) {
-		return errors.New("CNH vencida. Renove sua CNH para prosseguir")
+		return apperrors.ErrCNHVencida
 	}
 	return nil
 }
@@ -184,13 +202,13 @@ func ValidarValidadeCNH(validadeCNH time.Time) error {
 // ValidarForcaSenha retorna a força da senha e sugestões
 func ValidarForcaSenha(senha string) (string, error) {
 	if len(senha) < 8 {
-		return "Fraca", errors.New("senha deve ter pelo menos 8 caracteres, incluindo maiúscula, minúscula, número e símbolo")
+		return "Fraca", apperrors.ErrSenhaFraca
 	}
 
 	temMaiuscula := regexp.MustCompile(`[A-Z]`).MatchString(senha)
 	temMinuscula := regexp.MustCompile(`[a-z]`).MatchString(senha)
 	temNumero := regexp.MustCompile(`\d`).MatchString(senha)
-	temSimbolo := regexp.MustCompile(`[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]`).MatchString(senha)
+	temSimbolo := regexp.MustCompile(`[!@#$%^&*()_+\-=[]{};':"\\|,.<>\/?]`).MatchString(senha)
 
 	criterios := 0
 	if temMaiuscula {
@@ -207,7 +225,7 @@ func ValidarForcaSenha(senha string) (string, error) {
 	}
 
 	if criterios < 4 {
-		return "Fraca", errors.New("senha deve ter pelo menos 8 caracteres, incluindo maiúscula, minúscula, número e símbolo")
+		return "Fraca", apperrors.ErrSenhaFraca
 	}
 
 	if len(senha) >= 12 && criterios == 4 {
@@ -231,13 +249,13 @@ func ValidarDocumento(formato string, tamanho int64) error {
 	}
 
 	if !formatoValido {
-		return errors.New("formato não suportado. Use JPG, PNG ou PDF")
+		return apperrors.ErrDocumentoFormatoInvalido
 	}
 
 	// Tamanho máximo: 5MB
 	tamanhoMaximo := int64(5 * 1024 * 1024)
 	if tamanho > tamanhoMaximo {
-		return errors.New("arquivo muito grande. Tamanho máximo: 5MB")
+		return apperrors.ErrDocumentoMuitoGrande
 	}
 
 	return nil

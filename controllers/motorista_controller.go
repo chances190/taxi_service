@@ -8,6 +8,8 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
+	"taxi_service/internal/apperrors"
+	"taxi_service/models"
 	"taxi_service/services"
 )
 
@@ -26,37 +28,14 @@ func NewMotoristaController(motoristaService services.MotoristaService) *Motoris
 // CadastrarMotorista POST /api/motoristas
 func (c *MotoristaController) CadastrarMotorista(ctx *fiber.Ctx) error {
 	var request services.CadastroMotoristaRequest
-
 	if err := ctx.BodyParser(&request); err != nil {
-		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Dados inválidos",
-		})
+		return apperrors.ErrCampoObrigatorio
 	}
-
 	motorista, err := c.motoristaService.CadastrarMotorista(request)
 	if err != nil {
-		// Determinar o status code baseado no tipo de erro
-		statusCode := fiber.StatusBadRequest
-
-		switch err.Error() {
-		case "CPF já cadastrado", "CNH já cadastrada", "Email já cadastrado":
-			statusCode = fiber.StatusConflict
-		}
-
-		return ctx.Status(statusCode).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+		return err
 	}
-
-	return ctx.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"message": "Cadastro realizado com sucesso",
-		"motorista": fiber.Map{
-			"id":     motorista.ID,
-			"nome":   motorista.Nome,
-			"email":  motorista.Email,
-			"status": motorista.Status,
-		},
-	})
+	return ctx.Status(fiber.StatusCreated).JSON(fiber.Map{"message": "Cadastro realizado com sucesso", "motorista": resumoMotorista(motorista)})
 }
 
 // (Removidos endpoints JSON de upload individual e em lote para simplificação)
@@ -68,20 +47,20 @@ func (c *MotoristaController) UploadDocumentosArquivos(ctx *fiber.Ctx) error {
 
 	form, err := ctx.MultipartForm()
 	if err != nil || form == nil {
-		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "multipart inválido"})
+		return apperrors.ErrCampoObrigatorio
 	}
 	files := form.File["files"]
 	if len(files) == 0 {
-		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "nenhum arquivo enviado"})
+		return apperrors.ErrNenhumDocumentoEnviado
 	}
 	if len(files) > 3 {
-		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "máximo de 3 arquivos"})
+		return apperrors.ErrLimiteArquivosExcedido
 	}
 
 	// criar diretório do motorista
 	baseDir := filepath.Join("data", motoristaID)
 	if err := os.MkdirAll(baseDir, 0755); err != nil {
-		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "falha ao criar diretório"})
+		return apperrors.ErrFalhaCriarDiretorio
 	}
 
 	var uploadRequests []services.UploadDocumentoRequest
@@ -90,13 +69,13 @@ func (c *MotoristaController) UploadDocumentosArquivos(ctx *fiber.Ctx) error {
 		tipoField := "tipo_" + strconv.Itoa(idx)
 		tipos := form.Value[tipoField]
 		if len(tipos) == 0 {
-			return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "campo " + tipoField + " ausente"})
+			return apperrors.ErrCampoObrigatorio
 		}
 		tipo := tipos[0]
 		ext := filepath.Ext(fh.Filename)
 		destino := filepath.Join(baseDir, tipo+ext)
 		if err := ctx.SaveFile(fh, destino); err != nil {
-			return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "falha ao salvar arquivo"})
+			return apperrors.ErrFalhaSalvarArquivo
 		}
 		uploadRequests = append(uploadRequests, services.UploadDocumentoRequest{
 			TipoDocumento:  tipo,
@@ -107,11 +86,7 @@ func (c *MotoristaController) UploadDocumentosArquivos(ctx *fiber.Ctx) error {
 	}
 
 	if err := c.motoristaService.UploadDocumentosLote(motoristaID, uploadRequests); err != nil {
-		status := fiber.StatusBadRequest
-		if err.Error() == "motorista não encontrado" {
-			status = fiber.StatusNotFound
-		}
-		return ctx.Status(status).JSON(fiber.Map{"error": err.Error()})
+		return err
 	}
 
 	return ctx.JSON(fiber.Map{"message": "Arquivos enviados", "quantidade": len(uploadRequests)})
@@ -124,7 +99,7 @@ func (c *MotoristaController) DownloadDocumento(ctx *fiber.Ctx) error {
 
 	motorista, err := c.motoristaService.BuscarMotorista(motoristaID)
 	if err != nil {
-		return ctx.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "motorista não encontrado"})
+		return err
 	}
 	for _, doc := range motorista.Documentos {
 		if doc.TipoDocumento == tipo {
@@ -132,45 +107,19 @@ func (c *MotoristaController) DownloadDocumento(ctx *fiber.Ctx) error {
 			if _, err := os.Stat(doc.CaminhoArquivo); err == nil {
 				return ctx.SendFile(doc.CaminhoArquivo)
 			}
-			return ctx.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "arquivo não encontrado"})
+			return apperrors.ErrArquivoNaoEncontrado
 		}
 	}
-	return ctx.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "documento não encontrado"})
+	return apperrors.ErrDocumentoNaoEncontrado
 }
 
 // BuscarMotorista GET /api/motoristas/:id
 func (c *MotoristaController) BuscarMotorista(ctx *fiber.Ctx) error {
-	motoristaID := ctx.Params("id")
-
-	motorista, err := c.motoristaService.BuscarMotorista(motoristaID)
+	motorista, err := c.motoristaService.BuscarMotorista(ctx.Params("id"))
 	if err != nil {
-		return ctx.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error": "Motorista não encontrado",
-		})
+		return err
 	}
-	fotoURL := ""
-	if motorista.FotoPerfil != "" {
-		fotoURL = "/api/profile/" + motorista.ID + "/photo"
-	}
-
-	return ctx.JSON(fiber.Map{
-		"motorista": fiber.Map{
-			"id":              motorista.ID,
-			"nome":            motorista.Nome,
-			"email":           motorista.Email,
-			"telefone":        motorista.Telefone,
-			"cpf":             motorista.CPF,
-			"cnh":             motorista.CNH,
-			"categoria_cnh":   motorista.CategoriaCNH,
-			"validade_cnh":    motorista.ValidadeCNH,
-			"status":          motorista.Status,
-			"modelo_veiculo":  motorista.ModeloVeiculo,
-			"placa_veiculo":   motorista.PlacaVeiculo,
-			"criado_em":       motorista.CriadoEm,
-			"documentos":      motorista.Documentos,
-			"foto_perfil_url": fotoURL,
-		},
-	})
+	return ctx.JSON(fiber.Map{"motorista": detalhesMotorista(motorista)})
 }
 
 // FotoPerfil GET /api/profile/:id/photo
@@ -178,13 +127,13 @@ func (c *MotoristaController) FotoPerfil(ctx *fiber.Ctx) error {
 	motoristaID := ctx.Params("id")
 	motorista, err := c.motoristaService.BuscarMotorista(motoristaID)
 	if err != nil {
-		return ctx.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Motorista não encontrado"})
+		return err
 	}
 	if motorista.FotoPerfil == "" {
-		return ctx.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Foto não encontrada"})
+		return apperrors.ErrFotoNaoEncontrada
 	}
 	if _, err := os.Stat(motorista.FotoPerfil); err != nil {
-		return ctx.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Arquivo ausente"})
+		return apperrors.ErrArquivoNaoEncontrado
 	}
 	return ctx.SendFile(motorista.FotoPerfil)
 }
@@ -195,17 +144,8 @@ func (c *MotoristaController) FotoPerfil(ctx *fiber.Ctx) error {
 func (c *MotoristaController) AprovarMotorista(ctx *fiber.Ctx) error {
 	motoristaID := ctx.Params("id")
 
-	err := c.motoristaService.AprovarMotorista(motoristaID)
-	if err != nil {
-		statusCode := fiber.StatusBadRequest
-
-		if err.Error() == "Motorista não encontrado" {
-			statusCode = fiber.StatusNotFound
-		}
-
-		return ctx.Status(statusCode).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+	if err := c.motoristaService.AprovarMotorista(motoristaID); err != nil {
+		return err
 	}
 
 	return ctx.JSON(fiber.Map{
@@ -222,28 +162,15 @@ func (c *MotoristaController) RejeitarMotorista(ctx *fiber.Ctx) error {
 	}
 
 	if err := ctx.BodyParser(&request); err != nil {
-		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Dados inválidos",
-		})
+		return apperrors.ErrCampoObrigatorio
 	}
 
 	if request.Motivo == "" {
-		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Motivo é obrigatório",
-		})
+		return apperrors.ErrCampoObrigatorio
 	}
 
-	err := c.motoristaService.RejeitarMotorista(motoristaID, request.Motivo)
-	if err != nil {
-		statusCode := fiber.StatusBadRequest
-
-		if err.Error() == "Motorista não encontrado" {
-			statusCode = fiber.StatusNotFound
-		}
-
-		return ctx.Status(statusCode).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+	if err := c.motoristaService.RejeitarMotorista(motoristaID, request.Motivo); err != nil {
+		return err
 	}
 
 	return ctx.JSON(fiber.Map{
@@ -253,34 +180,26 @@ func (c *MotoristaController) RejeitarMotorista(ctx *fiber.Ctx) error {
 
 // AtualizarPerfil PUT /api/profile/:id
 func (c *MotoristaController) AtualizarPerfil(ctx *fiber.Ctx) error {
-	id := ctx.Params("id")
-	var body struct {
-		Telefone string `json:"telefone"`
-		Email    string `json:"email"`
-	}
+	var body struct{ Telefone, Email string }
 	if err := ctx.BodyParser(&body); err != nil {
-		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Dados inválidos"})
+		return apperrors.ErrCampoObrigatorio
 	}
-	m, err := c.motoristaService.AtualizarPerfil(id, body.Telefone, body.Email)
+	m, err := c.motoristaService.AtualizarPerfil(ctx.Params("id"), body.Telefone, body.Email)
 	if err != nil {
-		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		return err
 	}
-	return ctx.JSON(fiber.Map{"message": "Perfil atualizado com sucesso", "motorista": m})
+	return ctx.JSON(fiber.Map{"message": "Perfil atualizado com sucesso", "motorista": detalhesMotorista(m)})
 }
 
 // AlterarSenha PUT /api/profile/:id/password
 func (c *MotoristaController) AlterarSenha(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
-	var body struct {
-		SenhaAtual  string `json:"senha_atual"`
-		NovaSenha   string `json:"nova_senha"`
-		Confirmacao string `json:"confirmacao"`
-	}
+	var body struct{ SenhaAtual, NovaSenha, Confirmacao string }
 	if err := ctx.BodyParser(&body); err != nil {
-		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Dados inválidos"})
+		return apperrors.ErrCampoObrigatorio
 	}
 	if err := c.motoristaService.AlterarSenha(id, body.SenhaAtual, body.NovaSenha, body.Confirmacao); err != nil {
-		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		return err
 	}
 	return ctx.JSON(fiber.Map{"message": "Senha alterada com sucesso"})
 }
@@ -288,22 +207,22 @@ func (c *MotoristaController) AlterarSenha(ctx *fiber.Ctx) error {
 // UploadFotoPerfil POST /api/profile/:id/photo multipart campo 'foto'
 func (c *MotoristaController) UploadFotoPerfil(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
-	fileHeader, err := ctx.FormFile("foto")
+	fh, err := ctx.FormFile("foto")
 	if err != nil {
-		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Arquivo não enviado"})
+		return apperrors.ErrCampoObrigatorio
 	}
-	ext := strings.ToLower(filepath.Ext(fileHeader.Filename))
+	ext := strings.ToLower(filepath.Ext(fh.Filename))
 	formato := strings.TrimPrefix(ext, ".")
 	baseDir := filepath.Join("data", id, "profile")
 	if err := os.MkdirAll(baseDir, 0755); err != nil {
-		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Falha ao criar diretório"})
+		return apperrors.ErrFalhaCriarDiretorio
 	}
 	destino := filepath.Join(baseDir, "foto"+ext)
-	if err := ctx.SaveFile(fileHeader, destino); err != nil {
-		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Falha ao salvar arquivo"})
+	if err := ctx.SaveFile(fh, destino); err != nil {
+		return apperrors.ErrFalhaSalvarArquivo
 	}
-	if err := c.motoristaService.UploadFotoPerfil(id, destino, formato, fileHeader.Size); err != nil {
-		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	if err := c.motoristaService.UploadFotoPerfil(id, destino, formato, fh.Size); err != nil {
+		return err
 	}
 	return ctx.JSON(fiber.Map{"message": "Foto de perfil atualizada com sucesso", "caminho": destino})
 }
@@ -312,7 +231,7 @@ func (c *MotoristaController) UploadFotoPerfil(ctx *fiber.Ctx) error {
 func (c *MotoristaController) SolicitarExclusao(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
 	if err := c.motoristaService.SolicitarExclusao(id); err != nil {
-		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		return err
 	}
 	return ctx.JSON(fiber.Map{"message": "Solicitação de exclusão registrada"})
 }
@@ -321,64 +240,66 @@ func (c *MotoristaController) SolicitarExclusao(ctx *fiber.Ctx) error {
 func (c *MotoristaController) ConfirmarExclusao(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
 	if err := c.motoristaService.ConfirmarExclusao(id); err != nil {
-		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		return err
 	}
 	return ctx.JSON(fiber.Map{"message": "Sua conta foi encerrada e será excluida permanentemente em 72h"})
 }
 
 // VerificarForcaSenha POST /api/motoristas/verificar-senha
 func (c *MotoristaController) VerificarForcaSenha(ctx *fiber.Ctx) error {
-	var request struct {
-		Senha string `json:"senha" validate:"required"`
+	var req struct {
+		Senha string `json:"senha"`
 	}
-
-	if err := ctx.BodyParser(&request); err != nil {
-		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Dados inválidos",
-		})
+	if err := ctx.BodyParser(&req); err != nil {
+		return apperrors.ErrCampoObrigatorio
 	}
-
-	force, err := c.motoristaService.VerificarForcaSenha(request.Senha)
-
-	response := fiber.Map{
-		"forca": force,
-	}
-
+	forca, err := c.motoristaService.VerificarForcaSenha(req.Senha)
+	resp := fiber.Map{"forca": forca}
 	if err != nil {
-		response["message"] = err.Error()
+		resp["message"] = err.Error()
 	}
-
-	return ctx.JSON(response)
+	return ctx.JSON(resp)
 }
 
 // (Removido endpoint utilitário de validação de upload; validação ocorre ao salvar)
 
 // LoginMotorista POST /api/auth/login
 func (c *MotoristaController) LoginMotorista(ctx *fiber.Ctx) error {
-	var request struct {
-		Email string `json:"email" validate:"required,email"`
-		Senha string `json:"senha" validate:"required"`
+	var req struct{ Email, Senha string }
+	if err := ctx.BodyParser(&req); err != nil {
+		return apperrors.ErrCampoObrigatorio
 	}
-
-	if err := ctx.BodyParser(&request); err != nil {
-		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Dados inválidos",
-		})
-	}
-
-	motorista, err := c.motoristaService.LoginMotorista(request.Email, request.Senha)
+	m, err := c.motoristaService.LoginMotorista(req.Email, req.Senha)
 	if err != nil {
-		return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+		return err
 	}
+	return ctx.JSON(fiber.Map{"message": "Login realizado com sucesso", "motorista": resumoMotorista(m)})
+}
 
-	return ctx.JSON(fiber.Map{
-		"message": "Login realizado com sucesso",
-		"motorista": fiber.Map{
-			"id":    motorista.ID,
-			"nome":  motorista.Nome,
-			"email": motorista.Email,
-		},
-	})
+// --- helpers de serialização ---
+func resumoMotorista(m *models.Motorista) fiber.Map {
+	return fiber.Map{"id": m.ID, "nome": m.Nome, "email": m.Email, "status": m.Status}
+}
+
+func detalhesMotorista(m *models.Motorista) fiber.Map {
+	fotoURL := ""
+	if m.FotoPerfil != "" {
+		fotoURL = "/api/profile/" + m.ID + "/photo"
+	}
+	return fiber.Map{
+		"id":              m.ID,
+		"nome":            m.Nome,
+		"email":           m.Email,
+		"telefone":        m.Telefone,
+		"cpf":             m.CPF,
+		"cnh":             m.CNH,
+		"categoria_cnh":   m.CategoriaCNH,
+		"validade_cnh":    m.ValidadeCNH,
+		"status":          m.Status,
+		"modelo_veiculo":  m.ModeloVeiculo,
+		"placa_veiculo":   m.PlacaVeiculo,
+		"criado_em":       m.CriadoEm,
+		"documentos":      m.Documentos,
+		"foto_perfil_url": fotoURL,
+	}
 }
