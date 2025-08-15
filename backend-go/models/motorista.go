@@ -196,6 +196,7 @@ func ValidarValidadeCNH(validadeCNH time.Time) error {
 
 // ValidarForcaSenha retorna a força da senha e sugestões
 func ValidarForcaSenha(senha string) (string, error) {
+	senha = strings.TrimSpace(senha)
 	if len(senha) < 8 {
 		return "Fraca", apperrors.ErrSenhaFraca
 	}
@@ -206,27 +207,26 @@ func ValidarForcaSenha(senha string) (string, error) {
 	temSimbolo := regexp.MustCompile(`[!@#$%^&*()_+\-=[]{};':"\\|,.<>\/?]`).MatchString(senha)
 
 	criterios := 0
-	if temMaiuscula {
-		criterios++
-	}
-	if temMinuscula {
-		criterios++
-	}
-	if temNumero {
-		criterios++
-	}
-	if temSimbolo {
-		criterios++
-	}
+	if temMaiuscula { criterios++ }
+	if temMinuscula { criterios++ }
+	if temNumero { criterios++ }
+	if temSimbolo { criterios++ }
 
-	if criterios < 4 {
+	// Nova lógica:
+	// 0-1 critério: inválida (Fraca)
+	// 2 critérios: Fraca (erro)
+	// 3 critérios: Média (aceita)
+	// 4 critérios: Forte (>=8) ou Muito Forte (>=12)
+	if criterios < 3 { // 0,1,2 critérios => fraca
 		return "Fraca", apperrors.ErrSenhaFraca
 	}
-
-	if len(senha) >= 12 && criterios == 4 {
+	if criterios == 3 {
+		return "Média", nil
+	}
+	// criterios == 4
+	if len(senha) >= 12 {
 		return "Forte", nil
 	}
-
 	return "Média", nil
 }
 
