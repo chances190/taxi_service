@@ -249,3 +249,33 @@ func (c *MotoristaController) ValidarDocumentoUpload(ctx *fiber.Ctx) error {
 		"message": "Documento válido",
 	})
 }
+
+// LoginMotorista POST /api/auth/login
+func (c *MotoristaController) LoginMotorista(ctx *fiber.Ctx) error {
+	var request struct {
+		Email string `json:"email" validate:"required,email"`
+		Senha string `json:"senha" validate:"required"`
+	}
+
+	if err := ctx.BodyParser(&request); err != nil {
+		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Dados inválidos",
+		})
+	}
+
+	motorista, err := c.motoristaService.LoginMotorista(request.Email, request.Senha)
+	if err != nil {
+		return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return ctx.JSON(fiber.Map{
+		"message": "Login realizado com sucesso",
+		"motorista": fiber.Map{
+			"id":    motorista.ID,
+			"nome":  motorista.Nome,
+			"email": motorista.Email,
+		},
+	})
+}

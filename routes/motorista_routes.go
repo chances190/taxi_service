@@ -18,16 +18,24 @@ func SetupMotoristaRoutes(api fiber.Router) {
 	// Grupo de rotas da API
 	apiGroup := api.Group("/api")
 
-	// Rotas de motoristas
-	motoristas := apiGroup.Group("/motoristas")
-	motoristas.Post("/", motoristaController.CadastrarMotorista)                      // Cadastro de motorista
-	motoristas.Get("/:id", motoristaController.BuscarMotorista)                       // Buscar motorista
-	motoristas.Post("/:id/documentos", motoristaController.UploadDocumento)           // Upload de documentos
-	motoristas.Post("/:id/validar-documentos", motoristaController.ValidarDocumentos) // Validar documentos
-	motoristas.Put("/:id/aprovar", motoristaController.AprovarMotorista)              // Aprovar motorista
-	motoristas.Put("/:id/rejeitar", motoristaController.RejeitarMotorista)            // Rejeitar motorista
+	// Rotas de autenticação
+	auth := apiGroup.Group("/auth")
+	auth.Post("/register", motoristaController.CadastrarMotorista) // Cadastro de motorista
+	auth.Post("/login", motoristaController.LoginMotorista)        // Login de motorista
 
-	// Utilitários
-	motoristas.Post("/verificar-senha", motoristaController.VerificarForcaSenha)
-	motoristas.Post("/validar-documento", motoristaController.ValidarDocumentoUpload)
+	// Rotas de perfil
+	profile := apiGroup.Group("/profile")
+	profile.Get("/:id", motoristaController.BuscarMotorista) // Buscar motorista
+
+	// Rotas de documentos
+	documents := apiGroup.Group("/documents")
+	documents.Post("/:id/upload", motoristaController.UploadDocumento)     // Upload de documentos
+	documents.Post("/:id/validate", motoristaController.ValidarDocumentos) // Validar documentos
+	documents.Put("/:id/approve", motoristaController.AprovarMotorista)    // Aprovar motorista
+	documents.Put("/:id/reject", motoristaController.RejeitarMotorista)    // Rejeitar motorista
+
+	// Rotas utilitárias
+	utils := apiGroup.Group("/utils")
+	utils.Post("/check-password", motoristaController.VerificarForcaSenha)     // Verificar força da senha
+	utils.Post("/validate-upload", motoristaController.ValidarDocumentoUpload) // Validar upload de documento
 }

@@ -47,6 +47,7 @@ type MotoristaService interface {
 	RejeitarMotorista(motoristaID string, motivo string) error
 	BuscarMotorista(id string) (*models.Motorista, error)
 	VerificarForcaSenha(senha string) (string, error)
+	LoginMotorista(email, senha string) (*models.Motorista, error)
 }
 
 // MotoristaServiceImpl implementa MotoristaService
@@ -352,6 +353,20 @@ func (s *MotoristaServiceImpl) BuscarMotorista(id string) (*models.Motorista, er
 // VerificarForcaSenha verifica a força de uma senha
 func (s *MotoristaServiceImpl) VerificarForcaSenha(senha string) (string, error) {
 	return models.ValidarForcaSenha(senha)
+}
+
+// LoginMotorista realiza o login de um motorista
+func (s *MotoristaServiceImpl) LoginMotorista(email, senha string) (*models.Motorista, error) {
+	motorista, err := s.motoristaRepo.BuscarPorEmail(email)
+	if err != nil {
+		return nil, errors.New("e-mail não encontrado")
+	}
+
+	if motorista.Senha != senha {
+		return nil, errors.New("senha incorreta")
+	}
+
+	return motorista, nil
 }
 
 // limparString remove caracteres especiais de strings como CPF, CNH e telefone
