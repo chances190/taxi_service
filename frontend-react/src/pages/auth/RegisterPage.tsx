@@ -6,12 +6,11 @@ import { Paper, Typography, Stack, LinearProgress } from '@mui/material';
 import AppButton from '../../components/ui/AppButton';
 import AppAlert from '../../components/ui/AppAlert';
 import FormTextField from '../../components/ui/FormTextField';
+import PasswordStrengthBar from '@components/password/PasswordStrengthBar';
 import { useMutation } from '@tanstack/react-query';
 import api from '@services/api';
 import { sanitizeCPF, sanitizeTelefone, sanitizePlaca, sanitizeCNH, sanitizeEmail } from '@shared/format';
 import { saveAuth } from '@services/auth';
-// TODO: Implement PasswordStrengthBar component; temporary inline placeholder
-const PasswordStrengthBar = ({ password }: { password: string }) => null;
 
 interface RegisterForm {
   nome: string;

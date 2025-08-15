@@ -9,6 +9,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import api from '@services/api';
 import { formatTelefone, formatCPF, formatPlaca, sanitizeTelefone, sanitizeEmail } from '@shared/format';
 import { useState } from 'react';
+import PasswordStrengthBar from '@components/password/PasswordStrengthBar';
 
 interface Motorista {
   id: string;
@@ -103,6 +104,7 @@ export default function ProfilePage() {
               <Stack spacing={2} component="form" sx={{ width:'100%', maxWidth:400 }} onSubmit={async (e: React.FormEvent) => { e.preventDefault(); setErr(''); setMsg(''); try { const r = await api.put(`/api/profile/${id}/password`, { senha_atual: senhaAtual, nova_senha: novaSenha, confirmacao }); setMsg(r.data.message); setPwEditing(false); setSenhaAtual(''); setNovaSenha(''); setConfirmacao(''); } catch(e:any){ setErr(e.response?.data?.error || 'Erro ao alterar senha'); } }}>
                 <TextField label="Senha Atual" type="password" value={senhaAtual} onChange={e => setSenhaAtual(e.target.value)} size="small" />
                 <TextField label="Nova Senha" type="password" value={novaSenha} onChange={e => setNovaSenha(e.target.value)} size="small" />
+                <PasswordStrengthBar password={novaSenha} />
                 <TextField label="Confirmar" type="password" value={confirmacao} onChange={e => setConfirmacao(e.target.value)} size="small" />
                 <Stack direction="row" spacing={1}>
                   <AppButton type="submit" variant="contained" size="small">Salvar</AppButton>
