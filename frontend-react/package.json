@@ -1,0 +1,37 @@
+{
+  "name": "taxi-service-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint src --ext .js,.jsx,.ts,.tsx"
+  },
+  "dependencies": {
+    "@emotion/react": "^11.13.0",
+    "@emotion/styled": "^11.13.0",
+    "@mui/icons-material": "^6.0.0",
+    "@mui/material": "^6.0.0",
+    "@tanstack/react-query": "^5.51.1",
+    "axios": "^1.7.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-hook-form": "^7.53.0",
+    "react-router-dom": "^6.25.1",
+    "yup": "^1.4.0",
+    "@hookform/resolvers": "^3.9.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.5",
+    "@types/react-dom": "^18.3.0",
+  "@typescript-eslint/eslint-plugin": "^7.18.0",
+  "@typescript-eslint/parser": "^7.18.0",
+  "@vitejs/plugin-react": "^4.0.0",
+  "eslint": "^8.57.0",
+    "eslint-plugin-react": "^7.35.0",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.1"
+  }
+}
